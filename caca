@@ -8,6 +8,7 @@
 --    Section:CreateToggle({ Name = "Fly", Description = "Enable fly", Callback = function(v) end })
 --    Section:CreateButton({ Name = "Kill All", Callback = function() end })
 --    Section:CreateDropdown({ Name = "Team", Options = {"Red","Blue"}, Callback = function(v) end })
+--    Section:CreateDropdown({ Name = "Weapons", Options = {"Sword","Bow","Staff"}, MultiSelect = true, Callback = function(v) end })
 --    Section:CreateTextInput({ Name = "Speed", Placeholder = "Enter speed...", Callback = function(v) end })
 -- ============================================================
 
@@ -51,6 +52,12 @@ local Theme = {
     DropdownItem    = Color3.fromRGB(30,  30,  30),
     DropdownHover   = Color3.fromRGB(45,  45,  45),
     BottomBar       = Color3.fromRGB(24,  24,  24),
+    -- Switch (toggle) colors
+    SwitchTrackOff  = Color3.fromRGB(60,  60,  60),
+    SwitchTrackOn   = Color3.fromRGB(140, 140, 140),
+    SwitchKnob      = Color3.fromRGB(225, 225, 225),
+    -- Dropdown multi-select check accent
+    CheckAccent     = Color3.fromRGB(210, 210, 210),
 }
 
 -- ============================================================
@@ -75,6 +82,13 @@ local function MakePadding(parent, top, bottom, left, right)
     p.PaddingRight  = UDim.new(0, right  or 0)
     p.Parent = parent
     return p
+end
+
+local function MakeCorner(parent, radius)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = radius or UDim.new(1, 0)
+    c.Parent = parent
+    return c
 end
 
 -- ============================================================
@@ -411,7 +425,7 @@ function FeralLib:CreateWindow(config)
                 return row
             end
 
-            -- ── TOGGLE ────────────────────────────────────
+            -- ── TOGGLE (switch style) ───────────────────────
             function Section:CreateToggle(config)
                 config = config or {}
                 local name        = config.Name        or "Toggle"
@@ -423,7 +437,7 @@ function FeralLib:CreateWindow(config)
 
                 -- Name
                 MakeInstance("TextLabel", {
-                    Size             = UDim2.new(1, -36, 0, 16),
+                    Size             = UDim2.new(1, -48, 0, 16),
                     Position         = UDim2.new(0, 0, 0, desc ~= "" and 8 or 10),
                     BackgroundTransparency = 1,
                     Text             = name,
@@ -436,7 +450,7 @@ function FeralLib:CreateWindow(config)
                 -- Description
                 if desc ~= "" then
                     MakeInstance("TextLabel", {
-                        Size             = UDim2.new(1, -36, 0, 14),
+                        Size             = UDim2.new(1, -48, 0, 14),
                         Position         = UDim2.new(0, 0, 0, 26),
                         BackgroundTransparency = 1,
                         Text             = desc,
@@ -447,24 +461,26 @@ function FeralLib:CreateWindow(config)
                     }, row)
                 end
 
-                -- Checkbox
-                local Box = MakeInstance("Frame", {
-                    Size             = UDim2.new(0, 16, 0, 16),
-                    Position         = UDim2.new(1, -16, 0.5, -8),
-                    BackgroundColor3 = default and Theme.CheckboxOn or Theme.CheckboxOff,
-                    BorderSizePixel  = 1,
-                    BorderColor3     = Color3.fromRGB(80,80,80),
+                -- Switch track
+                local SwitchW, SwitchH, KnobSize, Pad = 32, 16, 12, 2
+                local Track = MakeInstance("Frame", {
+                    Size             = UDim2.new(0, SwitchW, 0, SwitchH),
+                    Position         = UDim2.new(1, -SwitchW, 0.5, -SwitchH/2),
+                    BackgroundColor3 = default and Theme.SwitchTrackOn or Theme.SwitchTrackOff,
+                    BorderSizePixel  = 0,
                 }, row)
+                MakeCorner(Track)
 
-                local Tick = MakeInstance("TextLabel", {
-                    Size             = UDim2.new(1,0,1,0),
-                    BackgroundTransparency = 1,
-                    Text             = "✓",
-                    TextColor3       = Color3.fromRGB(255,255,255),
-                    TextSize         = 11,
-                    Font             = Enum.Font.GothamBold,
-                    Visible          = default,
-                }, Box)
+                -- Knob
+                local Knob = MakeInstance("Frame", {
+                    Size             = UDim2.new(0, KnobSize, 0, KnobSize),
+                    Position         = default
+                        and UDim2.new(0, SwitchW - KnobSize - Pad, 0.5, -KnobSize/2)
+                        or  UDim2.new(0, Pad, 0.5, -KnobSize/2),
+                    BackgroundColor3 = Theme.SwitchKnob,
+                    BorderSizePixel  = 0,
+                }, Track)
+                MakeCorner(Knob)
 
                 local state = default
                 local ClickArea = MakeInstance("TextButton", {
@@ -473,18 +489,25 @@ function FeralLib:CreateWindow(config)
                     Text             = "",
                     BorderSizePixel  = 0,
                 }, row)
+
+                local function applyState(v)
+                    state = v
+                    Tween(Track, { BackgroundColor3 = state and Theme.SwitchTrackOn or Theme.SwitchTrackOff }, 0.12)
+                    Tween(Knob, {
+                        Position = state
+                            and UDim2.new(0, SwitchW - KnobSize - Pad, 0.5, -KnobSize/2)
+                            or  UDim2.new(0, Pad, 0.5, -KnobSize/2)
+                    }, 0.12)
+                end
+
                 ClickArea.MouseButton1Click:Connect(function()
-                    state = not state
-                    Tween(Box, { BackgroundColor3 = state and Theme.CheckboxOn or Theme.CheckboxOff }, 0.12)
-                    Tick.Visible = state
+                    applyState(not state)
                     pcall(callback, state)
                 end)
 
                 local Toggle = {}
                 function Toggle:Set(v)
-                    state = v
-                    Tween(Box, { BackgroundColor3 = state and Theme.CheckboxOn or Theme.CheckboxOff }, 0.12)
-                    Tick.Visible = state
+                    applyState(v)
                     pcall(callback, state)
                 end
                 function Toggle:Get() return state end
@@ -544,13 +567,25 @@ function FeralLib:CreateWindow(config)
                 end)
             end
 
-            -- ── DROPDOWN ──────────────────────────────────
+            -- ── DROPDOWN (single or multi select) ──────────
             function Section:CreateDropdown(config)
                 config = config or {}
-                local name     = config.Name     or "Dropdown"
-                local options  = config.Options  or {}
-                local default  = config.Default  or options[1]
-                local callback = config.Callback or function() end
+                local name        = config.Name        or "Dropdown"
+                local options      = config.Options     or {}
+                local multiSelect   = config.MultiSelect and true or false
+                local callback      = config.Callback   or function() end
+
+                -- state: selectedSet (multi) / selectedValue (single)
+                local selectedSet   = {}
+                local selectedValue
+
+                if multiSelect then
+                    for _, v in ipairs(config.Default or {}) do
+                        selectedSet[v] = true
+                    end
+                else
+                    selectedValue = config.Default or options[1]
+                end
 
                 local row = MakeRow(36)
                 row.ClipsDescendants = false
@@ -577,11 +612,29 @@ function FeralLib:CreateWindow(config)
                     ClipsDescendants = false,
                 }, row)
 
+                local function summaryText()
+                    if multiSelect then
+                        local list = {}
+                        for _, opt in ipairs(options) do
+                            if selectedSet[opt] then table.insert(list, opt) end
+                        end
+                        if #list == 0 then
+                            return "Select..."
+                        elseif #list == 1 then
+                            return list[1]
+                        else
+                            return #list .. " selected"
+                        end
+                    else
+                        return selectedValue or "Select..."
+                    end
+                end
+
                 local Selected = MakeInstance("TextLabel", {
                     Size             = UDim2.new(1, -20, 1, 0),
                     Position         = UDim2.new(0, 6, 0, 0),
                     BackgroundTransparency = 1,
-                    Text             = default or "Select...",
+                    Text             = summaryText(),
                     TextColor3       = Color3.fromRGB(180,180,180),
                     TextSize         = 11,
                     Font             = Enum.Font.Gotham,
@@ -626,13 +679,46 @@ function FeralLib:CreateWindow(config)
                         ZIndex           = 10,
                         LayoutOrder      = i,
                     }, ListFrame)
-                    MakePadding(Item, 0, 0, 8, 0)
+                    MakePadding(Item, 0, 0, 8, multiSelect and 22 or 8)
+
+                    local Check
+                    if multiSelect then
+                        Check = MakeInstance("TextLabel", {
+                            Size             = UDim2.new(0, 16, 1, 0),
+                            Position         = UDim2.new(1, -20, 0, 0),
+                            BackgroundTransparency = 1,
+                            Text             = selectedSet[opt] and "✓" or "",
+                            TextColor3       = Theme.CheckAccent,
+                            TextSize         = 11,
+                            Font             = Enum.Font.GothamBold,
+                            ZIndex           = 10,
+                        }, Item)
+                    end
+
                     Item.MouseEnter:Connect(function() Tween(Item, { BackgroundColor3 = Theme.DropdownHover }, 0.08) end)
                     Item.MouseLeave:Connect(function() Tween(Item, { BackgroundColor3 = Theme.DropdownItem }, 0.08) end)
                     Item.MouseButton1Click:Connect(function()
-                        Selected.Text  = opt
-                        ListFrame.Visible = false
-                        pcall(callback, opt)
+                        if multiSelect then
+                            if selectedSet[opt] then
+                                selectedSet[opt] = nil
+                            else
+                                selectedSet[opt] = true
+                            end
+                            Check.Text    = selectedSet[opt] and "✓" or ""
+                            Selected.Text = summaryText()
+
+                            local result = {}
+                            for _, o in ipairs(options) do
+                                if selectedSet[o] then table.insert(result, o) end
+                            end
+                            pcall(callback, result)
+                            -- keep list open so multiple options can be picked
+                        else
+                            selectedValue  = opt
+                            Selected.Text  = opt
+                            ListFrame.Visible = false
+                            pcall(callback, opt)
+                        end
                     end)
                 end
 
@@ -666,8 +752,29 @@ function FeralLib:CreateWindow(config)
                 end)
 
                 local Dropdown = {}
-                function Dropdown:Set(v) Selected.Text = v; pcall(callback, v) end
-                function Dropdown:Get() return Selected.Text end
+                function Dropdown:Set(v)
+                    if multiSelect then
+                        selectedSet = {}
+                        for _, o in ipairs(v or {}) do selectedSet[o] = true end
+                        Selected.Text = summaryText()
+                        pcall(callback, v)
+                    else
+                        selectedValue = v
+                        Selected.Text = v
+                        pcall(callback, v)
+                    end
+                end
+                function Dropdown:Get()
+                    if multiSelect then
+                        local result = {}
+                        for _, o in ipairs(options) do
+                            if selectedSet[o] then table.insert(result, o) end
+                        end
+                        return result
+                    else
+                        return selectedValue
+                    end
+                end
                 return Dropdown
             end
 
